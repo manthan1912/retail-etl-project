@@ -1,0 +1,242 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "factoryName": {
+            "type": "string",
+            "metadata": "Data Factory name",
+            "defaultValue": "project3-adf-databricks"
+        },
+        "AzureDatabricks1_accessToken": {
+            "type": "secureString",
+            "metadata": "Secure string for 'accessToken' of 'AzureDatabricks1'"
+        },
+        "LS_Azure_SQL_Project3_password": {
+            "type": "secureString",
+            "metadata": "Secure string for 'password' of 'LS_Azure_SQL_Project3'"
+        },
+        "LS_Azure_SQL_Project3_properties_typeProperties_server": {
+            "type": "string",
+            "defaultValue": "project3-sqlserver.database.windows.net"
+        },
+        "LS_Azure_SQL_Project3_properties_typeProperties_database": {
+            "type": "string",
+            "defaultValue": "project3-sqldb"
+        },
+        "LS_Azure_SQL_Project3_properties_typeProperties_userName": {
+            "type": "string",
+            "defaultValue": "admin-project3"
+        }
+    },
+    "variables": {
+        "factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+    },
+    "resources": [
+        {
+            "name": "[concat(parameters('factoryName'), '/PL_Run_Project3_Databricks_Job')]",
+            "type": "Microsoft.DataFactory/factories/pipelines",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "description": "ADF pipeline that will call theDatabricks job.",
+                "activities": [
+                    {
+                        "name": "RUN_Project3_Databricks_Job",
+                        "description": "",
+                        "type": "DatabricksJob",
+                        "dependsOn": [],
+                        "policy": {
+                            "timeout": "0.12:00:00",
+                            "retry": 0,
+                            "retryIntervalInSeconds": 30,
+                            "secureOutput": false,
+                            "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                            "jobId": "1076804894127777"
+                        },
+                        "linkedServiceName": {
+                            "referenceName": "AzureDatabricks1",
+                            "type": "LinkedServiceReference"
+                        }
+                    },
+                    {
+                        "name": "LOG_Project3_Success",
+                        "type": "SqlServerStoredProcedure",
+                        "dependsOn": [
+                            {
+                                "activity": "RUN_Project3_Validation_Job",
+                                "dependencyConditions": [
+                                    "Succeeded"
+                                ]
+                            }
+                        ],
+                        "policy": {
+                            "timeout": "0.12:00:00",
+                            "retry": 0,
+                            "retryIntervalInSeconds": 30,
+                            "secureOutput": false,
+                            "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                            "storedProcedureName": "[[dbo].[sp_log_adf_pipeline_run]",
+                            "storedProcedureParameters": {
+                                "pipeline_name": {
+                                    "value": "@pipeline().Pipeline",
+                                    "type": "String"
+                                },
+                                "pipeline_run_id": {
+                                    "value": "@pipeline().RunId",
+                                    "type": "String"
+                                },
+                                "run_status": {
+                                    "value": "Succeeded",
+                                    "type": "String"
+                                },
+                                "log_message": {
+                                    "value": "Databricks job completed successfully",
+                                    "type": "String"
+                                }
+                            }
+                        },
+                        "linkedServiceName": {
+                            "referenceName": "LS_Azure_SQL_Project3",
+                            "type": "LinkedServiceReference"
+                        }
+                    },
+                    {
+                        "name": "RUN_Project3_Validation_Job",
+                        "type": "DatabricksJob",
+                        "dependsOn": [
+                            {
+                                "activity": "RUN_Project3_Databricks_Job",
+                                "dependencyConditions": [
+                                    "Succeeded"
+                                ]
+                            }
+                        ],
+                        "policy": {
+                            "timeout": "0.12:00:00",
+                            "retry": 0,
+                            "retryIntervalInSeconds": 30,
+                            "secureOutput": false,
+                            "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                            "jobId": "1060724928994170"
+                        },
+                        "linkedServiceName": {
+                            "referenceName": "AzureDatabricks1",
+                            "type": "LinkedServiceReference"
+                        }
+                    },
+                    {
+                        "name": "LOG_Project3_Failure",
+                        "type": "SqlServerStoredProcedure",
+                        "dependsOn": [
+                            {
+                                "activity": "RUN_Project3_Databricks_Job",
+                                "dependencyConditions": [
+                                    "Failed"
+                                ]
+                            },
+                            {
+                                "activity": "RUN_Project3_Validation_Job",
+                                "dependencyConditions": [
+                                    "Failed"
+                                ]
+                            }
+                        ],
+                        "policy": {
+                            "timeout": "0.12:00:00",
+                            "retry": 0,
+                            "retryIntervalInSeconds": 30,
+                            "secureOutput": false,
+                            "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                            "storedProcedureName": "[[dbo].[sp_log_adf_pipeline_run]",
+                            "storedProcedureParameters": {
+                                "pipeline_name": {
+                                    "value": "@pipeline().Pipeline",
+                                    "type": "String"
+                                },
+                                "pipeline_run_id": {
+                                    "value": "@pipeline().RunId",
+                                    "type": "String"
+                                },
+                                "run_status": {
+                                    "value": "Failed",
+                                    "type": "String"
+                                },
+                                "log_message": {
+                                    "value": "Databricks ETL or validation job failed",
+                                    "type": "String"
+                                }
+                            }
+                        },
+                        "linkedServiceName": {
+                            "referenceName": "LS_Azure_SQL_Project3",
+                            "type": "LinkedServiceReference"
+                        }
+                    }
+                ],
+                "policy": {
+                    "elapsedTimeMetric": {}
+                },
+                "annotations": []
+            },
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/linkedServices/AzureDatabricks1')]",
+                "[concat(variables('factoryId'), '/linkedServices/LS_Azure_SQL_Project3')]"
+            ]
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/AzureDatabricks1')]",
+            "type": "Microsoft.DataFactory/factories/linkedServices",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "annotations": [],
+                "type": "AzureDatabricks",
+                "typeProperties": {
+                    "domain": "https://adb-7405617033373012.12.azuredatabricks.net",
+                    "accessToken": {
+                        "type": "SecureString",
+                        "value": "[parameters('AzureDatabricks1_accessToken')]"
+                    },
+                    "newClusterNodeType": "Standard_DS3_v2",
+                    "newClusterNumOfWorker": "1",
+                    "newClusterVersion": "16.4.x-scala2.12",
+                    "clusterOption": "Fixed",
+                    "newClusterInitScripts": []
+                }
+            },
+            "dependsOn": []
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/LS_Azure_SQL_Project3')]",
+            "type": "Microsoft.DataFactory/factories/linkedServices",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "annotations": [],
+                "type": "AzureSqlDatabase",
+                "typeProperties": {
+                    "server": "[parameters('LS_Azure_SQL_Project3_properties_typeProperties_server')]",
+                    "database": "[parameters('LS_Azure_SQL_Project3_properties_typeProperties_database')]",
+                    "encrypt": "mandatory",
+                    "trustServerCertificate": false,
+                    "authenticationType": "SQL",
+                    "userName": "[parameters('LS_Azure_SQL_Project3_properties_typeProperties_userName')]",
+                    "password": {
+                        "type": "SecureString",
+                        "value": "[parameters('LS_Azure_SQL_Project3_password')]"
+                    }
+                }
+            },
+            "dependsOn": []
+        }
+    ]
+}
